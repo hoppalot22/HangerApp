@@ -5,6 +5,7 @@ import os
 import threading
 import pandas as pd
 import perspectiveCorrect
+import EntryBoxTable
 
 class MainWindow():
     def __init__(self):
@@ -14,7 +15,7 @@ class MainWindow():
         self.root = root
         #root.geometry('700x400')
 
-        self.project = Project()
+        self.project = Project("New Project")
         self.excelWizard = None
 
         self.tabControl = ttk.Notebook(root)
@@ -52,13 +53,10 @@ class MainWindow():
         self.optionWindow.grab_set()
 
         fromDirButton = ttk.Button(self.optionWindow, text = "From Photo Directory", command = self.GenProjFromDirTree)
-        fromXlsxButton = ttk.Button(self.optionWindow, text = "From Excel File", command = self.GenProjFromXlsx)
-        ImportXlsxButton = ttk.Button(self.optionWindow, text = "Import Excel File", command = self.ImportXlsx)        
+        fromXlsxButton = ttk.Button(self.optionWindow, text = "From Excel File", command = self.GenProjFromXlsx)   
 
         fromDirButton.pack()
         fromXlsxButton.pack()
-        ImportXlsxButton.pack()
-
 
     def GenProjFromDirTree(self):
         self.optionWindow.grab_release()
@@ -70,9 +68,6 @@ class MainWindow():
         self.optionWindow.grab_release()
         self.optionWindow.destroy()
 
-    def ImportXlsx(self):
-        docPath = filedialog.askdirectory()
-        self.excelWizard = ExcelImportWizard(self, docPath)
 
 
 class ReportGenTab(tk.Frame):
@@ -86,6 +81,7 @@ class ReportGenTab(tk.Frame):
         self.buttonColumn.AddButton("Open", text ="Open Project...", command = self.Open)
         self.buttonColumn.AddButton("Save", text ="Save Project", command = self.Save)
         self.buttonColumn.AddButton("Generate", text ="Generate Report", command = self.GenerateReport)
+        self.buttonColumn.AddButton("Import", text ="Import Excel", command = self.ImportXlsx)
 
         self.buttonColumn.pack()
 
@@ -93,7 +89,9 @@ class ReportGenTab(tk.Frame):
         self.treeView.bind("<<TreeViewSelect>>", self.TreeUpdate)
         self.treeView.pack()
 
-
+    def ImportXlsx(self):
+        docPath = filedialog.askopenfilename()
+        self.excelWizard = ExcelImportWizard(self, docPath)
 
     def Open(self):
         pass
@@ -238,7 +236,8 @@ class PrevNextButtonUI(tk.Frame):
 class EntityColumn(tk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
-        self.entities = {}        
+        self.entities = {}
+        self.maxWidth = 0      
         
     def AddButton(self, name, **kwargs):
         button = tk.Button(self, **kwargs)
@@ -251,13 +250,11 @@ class EntityColumn(tk.Frame):
         label = tk.Label(frame, text = text)
         entryBox.pack(side = "left")
         label.pack(side = "left")
-        self.entities[name] = entryBox
         frame.pack(side = "top", anchor="nw", expand = True)
         self.AddToEntityList(entryBox, name)
 
     def AddCheckBox(self, parent, name, **kwargs):
         checkBox = tk.Checkbutton(parent, **kwargs)
-        self.entities[name] = checkBox
         checkBox.pack()
         self.AddToEntityList(checkBox, name)
 
@@ -267,6 +264,16 @@ class EntityColumn(tk.Frame):
             raise("Entity name already in use in this column")
         else:
             self.entities[name] = myObject
+
+    def UpdateWidth(self):
+        for name, entity in self.entities.items():
+            width = entity.winfo_width()
+            if width > self.maxWidth:
+                self.maxWidth = width
+        
+        for name, entity in self.entities.items():
+            entity.configure(width = self.maxWidth)
+
 
 class ProjectTree(tk.Frame):
     def __init__(self, parent, projName):
@@ -435,37 +442,35 @@ class DirectoryTree(tk.Frame):
     
 class ExcelImportWizard(tk.Tk):
     def __init__(self, parent, docPath):
-        super().__init__(parent)
+        super().__init__()
         self.grab_set()
-        self.title("Import Wizard")        
+        self.title("Import Wizard")
+        self.geometry("500x400")       
 
         self.navButtons = PrevNextButtonUI(self)
-        self.tableFrame = tk.Frame(self)
-
 
         self.data = pd.read_excel(docPath, sheet_name=None)
         self.tables = []
 
-        try:
-            for name, sheet in self.data.items():
-                table = ttk.Treeview(self.tableFrame)                   
-                table["columns"] = sheet.columns
+        # try:
+        #     for name, sheet in self.data.items():
+        #         table = EntryBoxTable(self)
+        #         self.tables.append(table)
+        # except Exception as e:
+        #     for table in self.tables:
+        #         table.destroy()
+        #     self.tables = []
+        #     messagebox.showerror(f"Could not load file", message=e)
 
-                self.tables.append(table)
-        except Exception as e:
-            for table in self.tables:
-                table.destroy()
-            tables = []
-            messagebox.showerror(f"Could not load file:\n {e}")
-
+        firstTable = EntryBoxTable(self)
+        assert type(firstTable) == EntryBoxTable
+        
         self.navButtons.pack()
-        self.tables[0].pack()
+        firstTable.pack()
+        
+        self.label = tk.Label(self, text = "Default")
+        self.label.pack(fill="x")
 
-        self.label = tk.Label("Default")
-
-        self.tableFrame.pack()
-        self.label.pack()
-    
 class Project():
     def __init__(self, name):
         self.name = name
