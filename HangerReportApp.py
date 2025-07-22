@@ -1,9 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 import os
 import threading
-import pandas
+import pandas as pd
 import perspectiveCorrect
 
 class MainWindow():
@@ -14,20 +14,24 @@ class MainWindow():
         self.root = root
         #root.geometry('700x400')
 
+        self.project = Project()
+        self.excelWizard = None
+
         self.tabControl = ttk.Notebook(root)
-        reportGen = ReportGenTab(self.tabControl)
-        photoProcessTab = ImageProcessTab(self.tabControl)
-        newJobTab = JobPrepareTab(self.tabControl)
+        self.reportGen = ReportGenTab(self.tabControl)
+        self.photoProcessTab = ImageProcessTab(self.tabControl)
+        self.newJobTab = JobPrepareTab(self.tabControl)
 
         #root.bind("<Configure>", photoProcessTab.gui.OnResize)
+        self.optionWindow = None
 
-        self.tabControl.add(reportGen, text = "Report Generation")
-        self.tabControl.add(photoProcessTab, text = "Image Processing")
-        self.tabControl.add(newJobTab, text = "Prepare for Job")
-
-        
+        self.tabControl.add(self.reportGen, text = "Report Generation")
+        self.tabControl.add(self.photoProcessTab, text = "Image Processing")
+        self.tabControl.add(self.newJobTab, text = "Prepare for Job")        
         
         self.tabControl.pack(expand=1, fill = "both")
+
+        self.reportGen.buttonColumn.AddButton("GenProj", text = "Generate From...", command = self.GenerateProj)
 
         numHangersLabel = tk.Label(root, text = "N/A Hangers")
         numHangersLabel.pack()
@@ -37,23 +41,59 @@ class MainWindow():
         self.hangerData = None
         self.photoFolder = None
 
+    def GenerateProj(self):
+        projTree = self.reportGen.treeView.tree
+
+        if not (len(projTree.get_children()) == 0):
+            if not (messagebox.askyesno("Are you sure you would like to overwite the current project tree?")):
+                return        
+
+        self.optionWindow = tk.Toplevel()
+        self.optionWindow.grab_set()
+
+        fromDirButton = ttk.Button(self.optionWindow, text = "From Photo Directory", command = self.GenProjFromDirTree)
+        fromXlsxButton = ttk.Button(self.optionWindow, text = "From Excel File", command = self.GenProjFromXlsx)
+        ImportXlsxButton = ttk.Button(self.optionWindow, text = "Import Excel File", command = self.ImportXlsx)        
+
+        fromDirButton.pack()
+        fromXlsxButton.pack()
+        ImportXlsxButton.pack()
+
+
+    def GenProjFromDirTree(self):
+        self.optionWindow.grab_release()
+        self.optionWindow.destroy()
+
+        self.reportGen.treeView.tree = self.photoProcessTab.treeView.tree
+
+    def GenProjFromXlsx(self):
+        self.optionWindow.grab_release()
+        self.optionWindow.destroy()
+
+    def ImportXlsx(self):
+        docPath = filedialog.askdirectory()
+        self.excelWizard = ExcelImportWizard(self, docPath)
+
+
 class ReportGenTab(tk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
         self.parent = parent
         self.statusText = "empty"
 
-        buttonColumn = EntityColumn(self)
+        self.buttonColumn = EntityColumn(self)
 
-        buttonColumn.AddButton("Open", text ="Open Project...", command = self.Open)
-        buttonColumn.AddButton("Save", text ="Save Project", command = self.Save)
-        buttonColumn.AddButton("Generate", text ="Generate Report", command = self.GenerateReport)
+        self.buttonColumn.AddButton("Open", text ="Open Project...", command = self.Open)
+        self.buttonColumn.AddButton("Save", text ="Save Project", command = self.Save)
+        self.buttonColumn.AddButton("Generate", text ="Generate Report", command = self.GenerateReport)
 
-        buttonColumn.pack()
+        self.buttonColumn.pack()
 
         self.treeView = ProjectTree(self, "MyProject")
         self.treeView.bind("<<TreeViewSelect>>", self.TreeUpdate)
         self.treeView.pack()
+
+
 
     def Open(self):
         pass
@@ -166,7 +206,7 @@ class ImageProcessTab(tk.Frame):
         self.UpdatePicture()
 
     def TreeUpdate(self, event):
-        self.statusText = f"Image: {self.treeView.tree.item(self.treeView.currentLeaf)["text"]}"
+        self.statusText = f"Image: {" -> ".join(self.treeView.PathToFocus())}"
         self.Update(event)
 
     def HangerNav(self, inc):
@@ -260,6 +300,12 @@ class ProjectTree(tk.Frame):
 
         self.treeContols.grid(row = 2, column = 0)
 
+    def LoadFromDir(self, dirTree):
+        for node in self.tree.get_children():
+            self.tree.delete(node)
+
+        
+
     def AddNodes(self):
         for i in range(int(self.treeContols.entities["Amount"].get())):
             self.AddNode()
@@ -303,6 +349,7 @@ class ProjectTree(tk.Frame):
     def SelectNode(self, event):
         pass
 
+
 class DirectoryTree(tk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
@@ -327,6 +374,7 @@ class DirectoryTree(tk.Frame):
         xsb.grid(row=1, column=0, sticky='ew')
 
         self.tree.bind('<<TreeviewSelect>>', self.SelectNode)
+
 
 
     def LoadTree(self, rootPath, node = ''):
@@ -375,6 +423,48 @@ class DirectoryTree(tk.Frame):
         newLeaf = (currentLeaf+inc)%len(self.leaves)
         self.tree.focus(self.leaves[newLeaf])     
         self.SelectNode("pass")
+
+    def PathToFocus(self):
+        path = [self.tree.item(self.focus, "text")]
+        parent = self.tree.parent(self.focus)
+        while not parent == '':
+            path.append(self.tree.item(parent, "text"))
+            parent = self.tree.parent(parent)
+        path.reverse()
+        return path
+    
+class ExcelImportWizard(tk.Tk):
+    def __init__(self, parent, docPath):
+        super().__init__(parent)
+        self.grab_set()
+        self.title("Import Wizard")        
+
+        self.navButtons = PrevNextButtonUI(self)
+        self.tableFrame = tk.Frame(self)
+
+
+        self.data = pd.read_excel(docPath, sheet_name=None)
+        self.tables = []
+
+        try:
+            for name, sheet in self.data.items():
+                table = ttk.Treeview(self.tableFrame)                   
+                table["columns"] = sheet.columns
+
+                self.tables.append(table)
+        except Exception as e:
+            for table in self.tables:
+                table.destroy()
+            tables = []
+            messagebox.showerror(f"Could not load file:\n {e}")
+
+        self.navButtons.pack()
+        self.tables[0].pack()
+
+        self.label = tk.Label("Default")
+
+        self.tableFrame.pack()
+        self.label.pack()
     
 class Project():
     def __init__(self, name):
@@ -382,6 +472,7 @@ class Project():
         self.savePath = None
         self.projTree = None
         self.fields = None
+        self.data = None
         self.QAcodes = None
         self.componentIDs = []
         self.nextID = 0
@@ -389,6 +480,9 @@ class Project():
     def AddComponent(self):
         self.componentIDs.append(self.nextID)
         self.nextID += 1
+
+
+
 
 def Main():
     myWindow = MainWindow()
