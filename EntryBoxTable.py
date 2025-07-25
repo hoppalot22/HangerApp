@@ -11,6 +11,9 @@ class EntryBoxTable(tk.Frame):
 
         self.allData = pd.DataFrame()
         self.workingData = pd.DataFrame()
+
+        self.sheetNames = None
+
         self.cellWidth = cellWidth
         self.headings = {}
         self.rowHeadings = {}
@@ -121,8 +124,9 @@ class EntryBoxTable(tk.Frame):
 
     def ImportDataFrame(self, df : pd.DataFrame, overwrite = True):
         if overwrite:
-            self.allData = df
-        self.workingData = df    
+            self.allData = df.astype(str)
+        self.workingData = df.astype(str)
+        self.sheetNames = list(self.workingData.keys())
         rows, cols = df.shape
         for row in self.grid:
             for cell in row:
@@ -159,6 +163,7 @@ class EntryBoxTable(tk.Frame):
             header.bind("<Button-1>", self.SelectRow)
             for j in range(len(self.headings)):
                 entry = tk.Entry(self.tableFrame, font = self.font)
+                entry.bind("<FocusOut>", lambda e, row = i, col = j : self.Edit(e, row, col))
                 cells.append(entry)
                 entry.grid(row=len(self.grid)+1, column=j+1, padx=0, pady=0, sticky="nsew")
             self.grid.append(cells)
@@ -171,6 +176,7 @@ class EntryBoxTable(tk.Frame):
             header.bind("<Button-1>", self.SelectCol)
             for i in range(len(self.grid)):
                 entry = tk.Entry(self.tableFrame, font = self.font)
+                entry.bind("<FocusOut>", lambda e, row = i, col = j : self.Edit(e, row, col))
                 self.grid[i].append(entry)
                 entry.grid(row=i+1, column=len(self.headings), padx=0, pady=0, sticky="nsew")
 
@@ -218,6 +224,16 @@ class EntryBoxTable(tk.Frame):
             self.selectedColumns.append(heading)
             heading.configure(background = "#%02x%02x%02x" % (200, 220, 255))
 
+    def Edit(self, event, row, col):
+        cell = event.widget
+        assert type(cell) == tk.Entry
+
+        df = self.workingData
+        df.loc[row, df.columns[col]] = cell.get()
+        self.Save()
+
+    def Save(self):
+        self.allData = self.workingData
 
 
 def main():

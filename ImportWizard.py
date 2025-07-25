@@ -10,6 +10,7 @@ class ExcelImportWizard(tk.Toplevel):
         self.grab_set()
         self.title("Import Wizard")
         self.geometry("600x400")
+        self.data = None
         self.result = None       
 
         self.navButtons = PrevNextUI.PrevNextButtonUI(self, labelText = "Sheet Navigation")
@@ -18,13 +19,15 @@ class ExcelImportWizard(tk.Toplevel):
         self.currentTable = 0
         self.label = tk.Label(self)
 
-        self.OpenXlsx(path = docPath)
-
         self.buttonFrame = tk.Frame(self)
         self.openButton = ttk.Button(self.buttonFrame, command = self.OpenXlsx, text = "Open...")
+        self.reloadButton = ttk.Button(self.buttonFrame, command = self.Reload, text = "Reload Excel")
+        #self.saveButton = ttk.Button(self.buttonFrame, command = self.SaveTable, text = "Save Table")
         self.finishButton = ttk.Button(self.buttonFrame, command = self.Finish, text = "Finish")
 
         self.openButton.pack(side = "left")
+        self.reloadButton.pack(side = "left")    
+        #self.saveButton.pack(side = "left")    
         self.finishButton.pack(side = "left")    
         
         self.navButtons.pack()
@@ -34,8 +37,14 @@ class ExcelImportWizard(tk.Toplevel):
 
         self.bind("<<Left>>", lambda e: self.ChangeTable(-1))
         self.bind("<<Right>>", lambda e: self.ChangeTable(1))
+        
+        self.OpenXlsx(path = docPath)
+
 
     def ChangeTable(self, inc):
+
+        print(self.data)
+        self.SaveTable()
         self.currentTable+=inc
 
         self.table.destroy()
@@ -47,14 +56,34 @@ class ExcelImportWizard(tk.Toplevel):
     def OpenXlsx(self, path = None):
         if path is None:
             path = filedialog.askopenfilename()
-        try:
-            self.data = pd.read_excel(path, sheet_name=None)
-        except Exception as e:
-            messagebox.showerror(f"Could not load file", message=e)
-        self.ChangeTable(0)  
+            self.path = path
+        if path == "":
+            return False
+        else:
+            try:
+                self.data = pd.read_excel(path, sheet_name=None)
+                self.path = path
+                
+            except Exception as e:
+                messagebox.showerror(f"Could not load file", message=e)
+                self.path = None
+                return False
+        self.ChangeTable(0) 
+ 
+    def Reload(self):
+        self.OpenXlsx(path = self.path)
+    
+    def SaveTable(self):
+        self.table.Save()
+        
+        self.data[self.table.sheetNames[self.currentTable%len(self.table.sheetNames)]] = self.table.allData               
 
     def Finish(self):
-        self.result = self.table.workingData
+        self.table.Save()
+        result = pd.DataFrame()
+        for k,v in self.data.items():
+            result = pd.concat([result, v], ignore_index=True)
+        self.result = result
         self.destroy()
 
 def main():

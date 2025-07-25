@@ -8,7 +8,7 @@ class EntityColumn(tk.Frame):
         self.maxWidth = 0      
         
     def AddButton(self, name, **kwargs):
-        button = tk.Button(self, **kwargs)
+        button = ttk.Button(self, **kwargs)
         button.pack(fill="both", expand=True)
         self.AddToEntityList(button, name)
         self.UpdateWidth(button.winfo_width())
@@ -24,7 +24,7 @@ class EntityColumn(tk.Frame):
         self.UpdateWidth(entryBox.winfo_width())
 
     def AddCheckBox(self, parent, name, **kwargs):
-        checkBox = tk.Checkbutton(parent, **kwargs)
+        checkBox = ttk.Checkbutton(parent, **kwargs)
         checkBox.pack(fill="both", expand=True)
         self.AddToEntityList(checkBox, name)
         self.UpdateWidth(checkBox.winfo_width())
@@ -42,3 +42,6 @@ class EntityColumn(tk.Frame):
                 self.maxWidth = entityWidth
         
         self.configure(width=self.maxWidth)
+
+    def __repr__(self):
+        return self.entities
