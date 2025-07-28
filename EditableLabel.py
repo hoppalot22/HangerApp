@@ -8,6 +8,9 @@ class EditableLabel(tk.Label):
         self._font = font
         self.bind("<Double-1>", self._on_double_click)
 
+    def Get(self):
+        return self.cget("text")
+    
     def _on_double_click(self, event):
         self._entry = tk.Entry(self._parent, font=self._font, width=0)
         self._entry.insert(0, self.cget("text"))

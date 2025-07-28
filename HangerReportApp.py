@@ -1,10 +1,11 @@
 import tkinter as tk
-from tkinter import ttk
-
+from tkinter import ttk, filedialog
+import os
 import pandas as pd
 import ImageProcessTab
 import JobPrepareTab
 import ReportGen
+import Project
 
 class MainWindow():
     def __init__(self):
@@ -13,12 +14,10 @@ class MainWindow():
         root.iconbitmap("Are you working.ico")
         self.root = root
 
-        self.project = Project("New Project")
-        self.data = None
-        self.photoFolder = None
+        self.project = Project.Project("New Project")
 
         self.tabControl = ttk.Notebook(root)
-        self.reportGen = ReportGen.ReportGenTab(self.tabControl)
+        self.reportGen = ReportGen.ReportGenTab(self.tabControl, project=self.project)
         self.photoProcessTab = ImageProcessTab.ImageProcessTab(self.tabControl)
         self.newJobTab = JobPrepareTab.JobPrepareTab(self.tabControl)
 
@@ -32,23 +31,6 @@ class MainWindow():
         self.StatusLabel.pack()
 
         root.mainloop()
-
-class Project():
-    def __init__(self, name):
-        self.name = name
-        self.savePath = None
-        self.projTree = None
-        self.fields = None
-        self.data = None
-        self.QAcodes = None
-        self.componentIDs = []
-        self.nextID = 0
-
-    def AddComponent(self):
-        self.componentIDs.append(self.nextID)
-        self.nextID += 1
-
-
 
 
 def Main():

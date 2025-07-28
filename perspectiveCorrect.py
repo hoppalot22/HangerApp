@@ -16,7 +16,7 @@ class App():
         
 
 class ImageEditor(ttk.Frame):
-    def __init__(self, parent):
+    def __init__(self, parent : ttk.Frame):
         super().__init__(parent)
         self.img = None
         self.finalImg = None
@@ -71,9 +71,16 @@ class ImageEditor(ttk.Frame):
             self.selected.pos = [event.x, event.y]
             self.UpdateScreen()
 
+    def OnResize(self, event):
+        #print(event)
+        #self.UpdateScreen()
+        pass
+    
     def UpdateScreen(self):
 
-        self.tkImgFinal = makeThumb(self.img)
+        imgDims = [self.parent.winfo_width(), int(self.parent.winfo_height()/2)]
+
+        self.tkImgFinal = makeThumb(self.img, imgDims)
         self.canvas1.create_image(0,0,image = self.tkImg, anchor = "nw")
         rect = [self.perspectiveRect[0].pos,self.perspectiveRect[1].pos,self.perspectiveRect[2].pos,self.perspectiveRect[3].pos]
 
@@ -85,7 +92,7 @@ class ImageEditor(ttk.Frame):
 
             matrix = cv.getPerspectiveTransform(np.float32(rect), np.float32([[self.w*0.2,self.h*0.2],[self.w*.8,self.h*0.2],[self.w*0.8,self.h*0.8],[self.w*0.2, self.h*0.8]]))
             self.finalImg = cv.warpPerspective(self.img, matrix, [self.w,self.h])
-            self.tkImgFinal = makeThumb(self.finalImg)
+            self.tkImgFinal = makeThumb(self.finalImg, size = imgDims)
         
         self.canvas2.create_image(0,0,image = self.tkImgFinal, anchor = "nw")
 
@@ -98,9 +105,9 @@ class CanvasObject():
         self.outline = [0,0,0]
         self.radius = 5
 
-def makeThumb(img, size = 500):
+def makeThumb(img, size = [500, 500]):
     img = Image.fromarray(img)
-    img.thumbnail([size,size])
+    img.thumbnail(size)
     return ImageTk.PhotoImage(img)
 
 def Main():

@@ -12,8 +12,6 @@ class EntryBoxTable(tk.Frame):
         self.allData = pd.DataFrame()
         self.workingData = pd.DataFrame()
 
-        self.sheetNames = None
-
         self.cellWidth = cellWidth
         self.headings = {}
         self.rowHeadings = {}
@@ -43,6 +41,7 @@ class EntryBoxTable(tk.Frame):
         self.addColsButton = ttk.Button(self.buttonFrame1, text = "Add Columns", command=self.AddColsButton)
         self.delRowsButton = ttk.Button(self.buttonFrame2, text = "Delete Rows", command=self.DeleteRows)
         self.delColsButton = ttk.Button(self.buttonFrame2, text = "Delete Columns", command=self.DeleteCols)
+        self.makeRowHeadersButton = ttk.Button(self.buttonFrame2, text = "Make Row Header", command=self.MakeRowHeader)
 
         self.addRowsField.pack(side = "left")
         self.addRowsButton.pack(side = "left")
@@ -50,6 +49,7 @@ class EntryBoxTable(tk.Frame):
         self.addColsButton.pack(side = "left")
         self.delRowsButton.pack(side = "left")
         self.delColsButton.pack(side = "left")
+        self.makeRowHeadersButton.pack(side = "left")
 
         self.grid = []
 
@@ -84,6 +84,7 @@ class EntryBoxTable(tk.Frame):
     def bind_mousewheel_recursive(self, widget):
         widget.bind("<Enter>", lambda e: self._bind_mousewheel(e))
         widget.bind("<Leave>", lambda e: self._unbind_mousewheel(e))
+        widget.bind("<Button-3>", lambda e: self.DeselectAll())
         for child in widget.winfo_children():
             self.bind_mousewheel_recursive(child)
     
@@ -126,7 +127,6 @@ class EntryBoxTable(tk.Frame):
         if overwrite:
             self.allData = df.astype(str)
         self.workingData = df.astype(str)
-        self.sheetNames = list(self.workingData.keys())
         rows, cols = df.shape
         for row in self.grid:
             for cell in row:
@@ -144,12 +144,12 @@ class EntryBoxTable(tk.Frame):
 
         self.AddRows(rows)
         self.AddCols(cols)
-        self.Headings(headings)
+        self.Headings(list(headings))
 
         for i, row in enumerate(self.grid):
             for j, cell in enumerate(row):
                 assert type(cell) == tk.Entry
-                cell.insert(0, str(df[df.columns[j]][i]))
+                cell.insert(0, str(self.workingData.iloc[i,j]))
 
         self.bind_mousewheel_recursive(self.canvas)
 
@@ -188,21 +188,31 @@ class EntryBoxTable(tk.Frame):
         self.ImportDataFrame(df, overwrite=False)
 
     def DeleteCols(self):
-        print(self.selectedColumns)
         df = self.workingData.drop([text.cget("text") for text in self.selectedColumns], axis = 1)
         self.selectedRows = []
         self.selectedColumns = []
         self.ImportDataFrame(df, overwrite=False)
             
 
-    def Headings(self, headings):
+    def Headings(self, headings : list):
         numColsRequired = len(headings) - len(self.headings)
         if numColsRequired > 0:
             self.AddCols(numColsRequired)
+
         for i, header in enumerate(headings):
+            if i>0 and (header in headings[0:i-1]):
+                header = header + f"({headings[0:i].count(header)})"
+                headings[i] = header
             label = self.headings[i]
             assert type(label) == EditableLabel.EditableLabel
             label.configure(text=header)
+        self.workingData.columns = headings
+    
+    def MakeRowHeader(self):
+        if len(self.selectedRows) == 0:
+            return
+        headerRow = [cell.get() for cell in self.grid[int(self.selectedRows[0].cget("text"))-1]]
+        self.Headings(headerRow)
     
     def SelectRow(self, event : tk.Event):
         heading = event.widget
@@ -223,6 +233,14 @@ class EntryBoxTable(tk.Frame):
         else:
             self.selectedColumns.append(heading)
             heading.configure(background = "#%02x%02x%02x" % (200, 220, 255))
+
+    def DeselectAll(self):
+        for heading in self.selectedRows:
+            heading.configure(background = self.defaultColour)
+        for heading in self.selectedColumns:
+            heading.configure(background = self.defaultColour)
+        self.selectedColumns = []
+        self.selectedRows = []
 
     def Edit(self, event, row, col):
         cell = event.widget

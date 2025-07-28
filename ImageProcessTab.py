@@ -58,7 +58,7 @@ class ImageProcessTab(tk.Frame):
                 counter += 1
                 if counter%int(numFiles/100) == 0:
                     self.statusText = f"Looking for Photos in {self.rootFolderPath}, {round(counter/numFiles*100,2)}% of paths searched"
-                    self.UpdateLabel()
+                    self.after(0, lambda s=self.statusText: self.statusLabel.config(text=s))
                 ext = file.lower().split(".")[-1]
                 if ext in ["jpg", "jpeg"]:
                     img_paths.append(os.path.join(root, file))
@@ -85,7 +85,7 @@ class ImageProcessTab(tk.Frame):
         self.UpdatePicture()
 
     def TreeUpdate(self, event):
-        self.statusText = f"Image: {" -> ".join(self.treeView.PathToFocus())}"
+        self.statusText = f"Image: {' -> '.join(self.treeView.PathToFocus())}"
         self.Update(event)
 
     def HangerNav(self, inc):
