@@ -8,7 +8,7 @@ import Treeviews
 import os
 
 class ImageProcessTab(tk.Frame):
-    def __init__(self, parent : ttk.Frame):
+    def __init__(self, parent : tk.Frame):
         super().__init__(parent)
         self.parent = parent
         self.rootFolderPath = None
@@ -68,30 +68,39 @@ class ImageProcessTab(tk.Frame):
     def SelectDirectory(self):
         self.rootFolderPath = filedialog.askdirectory()
         self.treeView.LoadTree(self.rootFolderPath)
-        self.treeView.tree.focus(self.treeView.leaves[0])
-        self.treeView.SelectNode("pass")
+        self.treeView.tree.focus(list(self.treeView.leaves.keys())[0])
+        self.treeView.OnSelectNode()
         myThead = threading.Thread(target=self.getPictures)
         myThead.start()
 
     def UpdateLabel(self):
         self.statusLabel.configure(text = self.statusText, wraplength = self.statusLabel.master.winfo_width())
 
-    def UpdatePicture(self):
-        if(os.path.isfile(self.treeView.selectionPath)) and self.treeView.selectionPath.split(".")[-1].lower() in ["jpg", "png", "jpeg"]:
-            self.gui.loadImg(self.treeView.selectionPath)
+    def UpdatePicture(self, event : tk.Event = None):
 
-    def Update(self, event):
-        self.UpdateLabel()
-        self.UpdatePicture()
+        node = self.treeView.tree.focus()        
+        assert type(node) == str
+
+        filepath = self.treeView.tree.item(node, "values")[0]
+        if os.path.isfile(filepath) and (filepath.split(".")[-1].lower() in ["jpg", "png", "jpeg"]):
+            self.gui.loadImg(filepath)
 
     def TreeUpdate(self, event):
-        self.statusText = f"Image: {' -> '.join(self.treeView.PathToFocus())}"
-        self.Update(event)
+        self.statusText = f"Image: {' -> '.join(self.treeView.GetPathToNode(self.treeView.tree.focus()))}"
+        self.UpdateLabel()
+        self.UpdatePicture(event)
 
     def HangerNav(self, inc):
-        if self.treeView.item is not None:
-            self.treeView.SelectNextParent(inc)
+        self.treeView.SelectNextParent(inc)
 
     def PhotoNav(self, inc):
-        if self.treeView.item is not None:
-            self.treeView.SelectNext(inc)
+        self.treeView.SelectNext(inc)
+
+def Main():
+    root = tk.Tk()
+    imgTab = ImageProcessTab(root)
+    imgTab.pack()
+    root.mainloop()
+
+if __name__ == "__main__":
+    Main()

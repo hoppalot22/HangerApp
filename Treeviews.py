@@ -23,81 +23,97 @@ class BaseTree(tk.Frame):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        self.focusItem = None
-        self.selectionPath = ""
         self.editBox = None
-        self.editItem = None
 
-        self.tree.bind('<<TreeviewSelect>>', self.onSelectNode)
-        self.tree.bind('<Double-1>', self.beginEdit)
-        self.tree.bind('<F2>', self.beginEdit)
+        self.tree.bind('<<TreeviewSelect>>', self.OnSelectNode)
+        self.tree.bind('<Double-1>', self.BeginEdit)
+        self.tree.bind('<F2>', self.BeginEdit)
 
-    def onSelectNode(self, event=None):
+    def OnSelectNode(self, event=None):
         pass
 
-    def getPathToFocus(self):
+    def GetPathToNode(self, node = None):
         """Returns list of labels from root to the focused node."""
-        if not self.focusItem:
-            return []
-        path = [self.tree.item(self.focusItem, "text")]
-        parent = self.tree.parent(self.focusItem)
+        if node is None:
+            node = self.tree.focus()
+        path = [node]
+        parent = self.tree.parent(node)
         while parent:
             path.append(self.tree.item(parent, "text"))
             parent = self.tree.parent(parent)
         return list(reversed(path))
+    
+    def GetLeafNodePaths(self):
+        leafPaths = {}
+        def recurse(node, pathSoFar : list):
 
-    def clear(self):
+            pathSoFar.append(node)
+            children = self.tree.get_children(node)            
+
+            if not children:
+                leafPaths[node] = pathSoFar
+            else:
+                for child in children:
+                    recurse(child, pathSoFar)
+
+        for root in self.tree.get_children():
+            recurse(root, [])
+        
+        return leafPaths        
+
+
+    def Clear(self):
         """Remove all nodes from the tree."""
         for node in self.tree.get_children():
             self.tree.delete(node)
 
-    def insertNode(self, parent='', text='', values=None):
+    def InsertNode(self, parent='', text='', values=None):
         """Insert a single node into the tree."""
         return self.tree.insert(parent, 'end', text=text, values=values or [])
 
-    def deleteNode(self, item=None):
+    def DeleteNode(self, node = None):
         """Delete the specified node or currently focused one."""
-        if not item:
-            item = self.tree.focus()
-        if item:
-            self.tree.delete(item)
+        if node is not None:
+            node = self.tree.focus()
+        
+        self.tree.delete(node)
 
-    def setHeadingText(self, text):
+    def SetHeadingText(self, text):
         self.tree.heading('#0', text=text, anchor='w')
 
 
-    def beginEdit(self, event=None):
-        item = self.tree.identify_row(event.y) if event else self.tree.focus()
-        if not item:
+    def BeginEdit(self, event=None):
+        node = self.tree.identify_row(event.y) if event else self.tree.focus()
+        if not node:
             return
-
-        self.editItem = item
-        bbox = self.tree.bbox(item)
+        
+        bbox = self.tree.bbox(node)
         if not bbox:
             return  # Avoid crash if item is collapsed
 
-        text = self.tree.item(item, "text")
+        text = self.tree.item(node, "text")
         self.editBox = tk.Entry(self, width=bbox[2])
         self.editBox.insert(0, text)
         self.editBox.place(x=bbox[0], y=bbox[1])
         self.editBox.focus()
         self.editBox.selection_range(0, tk.END)
 
-        self.editBox.bind("<Return>", self.finishEdit)
+        self.editBox.bind("<Return>", lambda e, node = node : self.finishEdit(event = e, node = node))
         self.editBox.bind("<Escape>", self.cancelEdit)
         self.editBox.bind("<FocusOut>", self.finishEdit)
 
-    def finishEdit(self, event=None):
-        if self.editItem and self.editBox:
-            newText = self.editBox.get()
-            self.tree.item(self.editItem, text=newText)
-            self.cancelEdit()
+    def finishEdit(self, event : tk.Event = None, node = None):
+        box = event.widget
+        assert type(box) == tk.Entry
+        newText = box.get()
+        self.tree.item(self.editItem, text=newText)
+        self.cancelEdit()
 
-    def cancelEdit(self, event=None):
-        if self.editBox:
-            self.editBox.destroy()
-            self.editBox = None
-            self.editItem = None
+    def cancelEdit(self, event : tk.Event = None):
+        if box is not None:
+            box = event.widget
+        assert type(box) == tk.Entry
+        box.destroy()
 
 class ProjectTree(BaseTree):
     def __init__(self, parent, projName):
@@ -123,34 +139,10 @@ class ProjectTree(BaseTree):
         while newName in [self.tree.item(i)["text"] for i in self.tree.get_children(currentNode)]:
             counter += 1
             newName = name + f"({counter})"
-        newNode = self.tree.insert(currentNode, 'end', text = newName)
-        self.nodes.append(newNode)
+        self.tree.insert(currentNode, 'end', text = newName)
 
     def DeleteNode(self):
         self.tree.delete(self.tree.focus())
-
-    def EditNode(self, event):
-        for node in self.nodes:
-            if ((self.tree.bbox(node)[0] < event.x) and (self.tree.bbox(node)[0] + self.tree.bbox(node)[2] > event.x) and (self.tree.bbox(node)[1] < event.y) and (self.tree.bbox(node)[1] + self.tree.bbox(node)[3] > event.y)):
-                text = tk.StringVar(value = self.tree.item(node, "text"))
-                self.editNode = node
-                self.editBox = tk.Entry(self, textvariable = text, width = self.tree.bbox(node)[2])
-                self.editBox.place(x = self.tree.bbox(node)[0], y = self.tree.bbox(node)[1])
-
-                self.editBox.bind("<FocusOut>", self.FinishEdit)
-                self.editBox.bind("<Return>", self.FinishEdit)
-                self.editBox.bind("<Escape>", self.FinishEdit)
-                self.editBox.bind("<FocusIn>", self.Highlight)
-
-                self.editBox.focus()
-
-    def Highlight(self, event):
-        self.editBox.selection_range(0, tk.END)
-
-    def FinishEdit(self, event : tk.Event):     
-        if not (event.keysym == "Escape"):
-            self.tree.item(self.editNode, text = self.editBox.get())
-        self.editBox.destroy()
 
     def SelectNode(self, event):
         pass
@@ -165,53 +157,41 @@ class DirectoryTree(BaseTree):
             newNode = self.tree.insert(node, 'end', text = item, values=[rootPath + "\\" + item])
             if os.path.isdir(rootPath + "\\" + item):
                 self.LoadTree(rootPath + "\\" + item, node = newNode)
-            else:
-                self.leaves.append(newNode)
 
+        if node == '':
+            self.leaves = self.GetLeafNodePaths()
 
-    def onSelectNode(self, event):
-        self.focus = self.tree.focus()
-        self.item = self.tree.item(self.focus)
-        self.currentSiblings = list(self.tree.get_children(self.tree.parent(self.focus)))
-        self.currentSibling = self.currentSiblings.index(self.focus)
-        
+    def OnSelectNode(self, event = None):
+        focus = self.tree.focus()     
 
-        if(self.focus in self.leaves):
-            self.currentLeaf = self.focus
-            self.selectionPath = self.item["values"][0]
-
-            if(os.path.isfile(self.selectionPath)):
+        if(focus in self.leaves.keys()):
+            selectionPath = self.tree.item(focus, "values")[0]
+            if(os.path.isfile(selectionPath)):
                 self.event_generate("<<NodeSelect>>")
 
     def SelectNext(self, inc):
-        self.currentSibling += inc
-        for i in range(len(self.currentSiblings)):
-            if(self.tree.item(self.currentSiblings[self.currentSibling%len(self.currentSiblings)])["values"][0].split(".")[-1].lower() not in ["jpg", "png", "jpeg"]):
+        focus = self.tree.focus()  
+        currentSiblings = list(self.tree.get_children(self.tree.parent(focus)))
+        currentSibling = currentSiblings.index(focus)   
+        currentSibling += inc
+
+        for i in range(len(currentSiblings)):
+            if(self.tree.item(currentSiblings[currentSibling%len(currentSiblings)])["values"][0].split(".")[-1].lower() not in ["jpg", "png", "jpeg"]):
                 self.currentSibling += inc
             else:
                 break
-        self.tree.focus(self.currentSiblings[self.currentSibling%len(self.currentSiblings)])
-        self.SelectNode("pass")
+        self.tree.focus(currentSiblings[self.currentSibling%len(currentSiblings)])
+        self.OnSelectNode()
 
     def SelectNextParent(self, inc):
+        
+        node = self.tree.focus()
+        leaves = list(self.GetLeafNodePaths().keys())
+        leafIndex = leaves.index(node)
 
-        if self.currentLeaf in self.leaves:
-            currentLeaf = self.leaves.index(self.currentLeaf)
-        else:
-            currentLeaf = 0
-
-        while self.tree.parent(self.leaves[currentLeaf]) == self.tree.parent(self.leaves[(currentLeaf+inc)%len(self.leaves)]):
+        while self.tree.parent(leaves[node]) == self.tree.parent(leaves[(leafIndex+inc)%len(leaves)]):
             inc+=inc
-        newLeaf = (currentLeaf+inc)%len(self.leaves)
-        self.tree.focus(self.leaves[newLeaf])     
-        self.SelectNode("pass")
-
-    def PathToFocus(self):
-        path = [self.tree.item(self.focus, "text")]
-        parent = self.tree.parent(self.focus)
-        while not parent == '':
-            path.append(self.tree.item(parent, "text"))
-            parent = self.tree.parent(parent)
-        path.reverse()
-        return path
+        newLeafIndex = (leafIndex+inc)%len(leaves)
+        self.tree.focus(self.leaves[newLeafIndex])     
+        self.OnSelectNode()
     
