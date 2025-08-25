@@ -1,10 +1,17 @@
 import tkinter as tk
 import EntityColumn
+import Project
 
 class JobPrepareTab(tk.Frame):
-    def __init__(self, parent):
+    def __init__(self, parent, controller):
         super().__init__(parent)
         self.parent = parent
+        self.controller = controller
+
+        project = controller.project
+        assert type(project) == Project.Project
+        self.project = project
+
         self.statusText = "empty"
 
         self.hangerData = None

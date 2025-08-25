@@ -9,12 +9,16 @@ import Project
 import TreeItemDataViewer
 
 class ReportGenTab(tk.Frame):
-    def __init__(self, parent, project : Project.Project):
+    def __init__(self, parent, controller):
         super().__init__(parent)
         self.parent = parent
-        self.project = project
-        self.statusText = "empty"
+        self.controller = controller
 
+        project = controller.project
+        assert type(project) == Project.Project
+        self.project = project
+
+        self.statusText = "empty"
         self.data = None
         self.currentRowIndex = 0
 
@@ -34,9 +38,10 @@ class ReportGenTab(tk.Frame):
 
         self.dataViewer = TreeItemDataViewer.TreeItemDataViewer(self.dataViewerFrame)
         self.dataViewer.tree.bind("<Double-1>", self.OnDoubleClick)
-        self.interestBtn = tk.Button(self.dataViewerFrame, text="Toggle Relevant Fields", command=self.ToggleInterest)
-        self.interestBtn.pack()
-
+        self.addRelField = tk.Button(self.dataViewerFrame, text="Add Report Field", command=self.AddRelField)
+        self.addRelField.pack()
+        self.removeRelField = tk.Button(self.dataViewerFrame, text="Remove Report Field", command=self.RemoveRelField)
+        self.removeRelField.pack()
 
         self.dataViewer.pack(fill="both", expand=True)
 
@@ -45,6 +50,9 @@ class ReportGenTab(tk.Frame):
 
         self.dataViewerFrame.pack(side="left", expand=True, fill="both")
         self.rhsFrame.pack(side="left", expand=True, fill="y")
+
+        self.UpdateTree()
+        self.OnTreeSelect(None)
 
     def GenerateProj(self):
         projTree = self.treeView.tree
@@ -76,7 +84,8 @@ class ReportGenTab(tk.Frame):
     def OnTreeSelect(self, event):
         selectedItem = self.treeView.tree.selection()
         if not selectedItem:
-            return
+            self.treeView.tree.selection_set(self.treeView.tree.get_children()[0])
+            selectedItem = self.treeView.tree.selection()
 
         itemText = self.treeView.tree.item(selectedItem, "text")
 
@@ -175,15 +184,23 @@ class ReportGenTab(tk.Frame):
         entry.bind("<Return>", SaveEdit)
         entry.bind("<FocusOut>", SaveEdit)
     
-    def ToggleInterest(self):
+    def AddRelField(self):
+        for item in self.dataViewer.tree.selection():
+            field = self.dataViewer.tree.set(item, "Field")
+            if field in self.project.fieldsOfInterest:
+                continue
+            else:
+                self.project.fieldsOfInterest.add(field)
+                self.dataViewer.tree.item(item, tags=("interest"))
+        print(self.project.fieldsOfInterest)
+        self.OnTreeSelect(None)
+    
+    def RemoveRelField(self):
         for item in self.dataViewer.tree.selection():
             field = self.dataViewer.tree.set(item, "Field")
             if field in self.project.fieldsOfInterest:
                 self.project.fieldsOfInterest.remove(field)
                 self.dataViewer.tree.item(item, tags=("nonInterest"))
-            else:
-                self.project.fieldsOfInterest.add(field)
-                self.dataViewer.tree.item(item, tags=("interest"))
         print(self.project.fieldsOfInterest)
         self.OnTreeSelect(None)
     

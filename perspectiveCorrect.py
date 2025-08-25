@@ -78,9 +78,12 @@ class ImageEditor(ttk.Frame):
     
     def UpdateScreen(self):
 
-        imgDims = [self.parent.winfo_width(), int(self.parent.winfo_height()/2)]
+        imgDims = [self.canvas1.winfo_width(), int(self.canvas1.winfo_height()/2)]
 
-        self.tkImgFinal = makeThumb(self.img, imgDims)
+        if (imgDims[0] == 0) or (imgDims[1] == 0):
+            return
+
+        self.tkImgFinal = makeThumb(self.img, size = imgDims)
         self.canvas1.create_image(0,0,image = self.tkImg, anchor = "nw")
         rect = [self.perspectiveRect[0].pos,self.perspectiveRect[1].pos,self.perspectiveRect[2].pos,self.perspectiveRect[3].pos]
 

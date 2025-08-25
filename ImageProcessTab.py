@@ -6,12 +6,22 @@ import PrevNextUI
 import perspectiveCorrect
 import Treeviews
 import os
+import Project
 
 class ImageProcessTab(tk.Frame):
-    def __init__(self, parent : tk.Frame):
+    def __init__(self, parent, controller):
         super().__init__(parent)
         self.parent = parent
-        self.rootFolderPath = None
+        self.controller = controller
+
+        project = controller.project
+        assert type(project) == Project.Project
+        self.project = project
+
+        projTree = controller.reportGen.treeView
+        assert type(projTree) == Treeviews.ProjectTree
+        self.projTree = projTree
+
         self.imgPaths = None
         self.statusText = "empty"
 
@@ -31,7 +41,9 @@ class ImageProcessTab(tk.Frame):
 
         self.treeView = Treeviews.DirectoryTree(self)
         self.treeView.bind("<<NodeSelect>>", self.TreeUpdate)
-        self.treeView.pack(expand=True)
+        self.treeView.pack(expand=False)
+
+        self.unionTree = self.treeView.TreeUnion(self.projTree)
 
         processColumn = EntityColumn.EntityColumn(self)
         processColumn.AddButton("Select Folder", text="Select Root Folder", command = self.SelectDirectory)
@@ -47,9 +59,11 @@ class ImageProcessTab(tk.Frame):
 
         self.statusLabel = statusLabel
 
+        self.SelectDirectory(askDialog=False)
+
     def getPictures(self):
         img_paths = []
-        rootWalk = os.walk(self.rootFolderPath)
+        rootWalk = os.walk(self.project.photoFolder)
         rootWalk = [walk for walk in rootWalk]
         numFiles = sum([len(files[2]) for files in rootWalk])
         counter = 0
@@ -57,7 +71,7 @@ class ImageProcessTab(tk.Frame):
             for file in files:
                 counter += 1
                 if counter%int(numFiles/100) == 0:
-                    self.statusText = f"Looking for Photos in {self.rootFolderPath}, {round(counter/numFiles*100,2)}% of paths searched"
+                    self.statusText = f"Looking for Photos in {self.project.photoFolder}, {round(counter/numFiles*100,2)}% of paths searched"
                     self.after(0, lambda s=self.statusText: self.statusLabel.config(text=s))
                 ext = file.lower().split(".")[-1]
                 if ext in ["jpg", "jpeg"]:
@@ -65,16 +79,17 @@ class ImageProcessTab(tk.Frame):
         self.imgPaths = img_paths
         self.UpdatePicture()
 
-    def SelectDirectory(self):
-        self.rootFolderPath = filedialog.askdirectory()
-        self.treeView.LoadTree(self.rootFolderPath)
+    def SelectDirectory(self, askDialog = True):
+        if askDialog or (self.project.photoFolder is None):
+            self.project.photoFolder = filedialog.askdirectory()
+        self.treeView.LoadTree(self.project.photoFolder)
         self.treeView.tree.focus(list(self.treeView.leaves.keys())[0])
         self.treeView.OnSelectNode()
         myThead = threading.Thread(target=self.getPictures)
         myThead.start()
 
     def UpdateLabel(self):
-        self.statusLabel.configure(text = self.statusText, wraplength = self.statusLabel.master.winfo_width())
+        self.statusLabel.configure(text = self.statusText)
 
     def UpdatePicture(self, event : tk.Event = None):
 
@@ -86,7 +101,8 @@ class ImageProcessTab(tk.Frame):
             self.gui.loadImg(filepath)
 
     def TreeUpdate(self, event):
-        self.statusText = f"Image: {' -> '.join(self.treeView.GetPathToNode(self.treeView.tree.focus()))}"
+        self.statusText = f"Image: {' -> '.join(self.treeView.GetPathToNode(self.treeView.tree.focus(), asText=True))}"
+        print(f"Trees differ at {self.treeView.TreeDiff(self.projTree)}")
         self.UpdateLabel()
         self.UpdatePicture(event)
 

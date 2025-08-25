@@ -1,14 +1,21 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, font as tkFont
 import EntityColumn
 import os
 
 class BaseTree(tk.Frame):
-    def __init__(self, parent, headingText="Tree"):
+    def __init__(self, parent, headingText="Tree", width = 300, height = 400):
         super().__init__(parent)
-        self.tree = ttk.Treeview(self)
+        self.grid_propagate(False)
+        self.width = width
+        self.height = height
+        self.config(width=width, height=height)
+        self.tree = ttk.Treeview(self, columns=("dummy",))
+
+        self.tree.column("dummy", width=0, stretch=False)
+        self.tree.heading("dummy", text="")
         self.tree.heading('#0', text=headingText, anchor='w')
-        self.tree.column("#0", stretch=False)
+        self.tree.column("#0", stretch=False, minwidth=1000)
 
         self.leaves = {}
 
@@ -29,17 +36,51 @@ class BaseTree(tk.Frame):
         self.tree.bind('<Double-1>', self.BeginEdit)
         self.tree.bind('<F2>', self.BeginEdit)
 
-    def OnSelectNode(self, event=None):
-        pass
+        style = ttk.Style()
+        font_name = style.lookup("Treeview", "font")
+        if not font_name:  # fallback
+            font_name = "TkDefaultFont"
+        self._font = tkFont.nametofont(font_name)
 
-    def GetPathToNode(self, node = None):
+    def autosizeColumn(self, col="#0"):
+        """Resize column to fit the longest text in the whole tree (all depths)."""
+        max_width = 0
+
+        def measure_node(node, depth=0):
+            nonlocal max_width
+            text = self.tree.item(node, "text")
+            width = self._font.measure(text) + depth * 20  # indent adds width
+            max_width = max(max_width, width)
+
+            for child in self.tree.get_children(node):
+                measure_node(child, depth + 1)
+
+        # Start with all top-level nodes
+        for root in self.tree.get_children(""):
+            measure_node(root, depth=0)
+
+        # Apply column width
+        self.tree.column(col, width=max_width + 10)
+    
+    def OnSelectNode(self, event=None):
+        self.autosizeColumn
+
+    def GetPathToNode(self, node = None, asText = True):
         """Returns list of labels from root to the focused node."""
         if node is None:
             node = self.tree.focus()
-        path = [node]
+        
+        if asText:
+            path = [self.tree.item(node, "text")]
+        else:
+            path = [node]
+
         parent = self.tree.parent(node)
         while parent:
-            path.append(self.tree.item(parent, "text"))
+            if asText:
+                path.append(self.tree.item(parent, "text"))
+            else:
+                path.append(parent)
             parent = self.tree.parent(parent)
         return list(reversed(path))
     
@@ -61,15 +102,57 @@ class BaseTree(tk.Frame):
         
         return leafPaths        
 
+    def GetShape(self, node = ''):
+        shape = {}
+        children = self.tree.get_children(node)
+        for i, child in enumerate(children):
+            shape[i] = self.GetShape(child)
+        return shape
+        
+    def TreeUnion(self, otherTree):
+        assert isinstance(otherTree, BaseTree)
+
+        shape1 = self.GetShape()
+        shape2 = otherTree.GetShape()
+
+        def union_dict(d1, d2):
+            all_keys = set(d1.keys()) | set(d2.keys())
+            result = {}
+            for k in all_keys:
+                result[k] = union_dict(d1.get(k, {}), d2.get(k, {}))
+            return result
+
+        return union_dict(shape1, shape2)
+
+    def TreeDiff(self, otherTree):
+        assert isinstance(otherTree, BaseTree)
+
+        base = self.TreeUnion(otherTree)     # dict representing union
+        sub = self.GetShape()                # dict representing this tree’s shape
+
+        def diff_dict(base_dict, sub_dict):
+            missing = {}
+            for k, v in base_dict.items():
+                if k not in sub_dict:
+                    missing[k] = v
+                else:
+                    diff = diff_dict(v, sub_dict[k])
+                    if diff:
+                        missing[k] = diff
+            return missing
+
+        return diff_dict(base, sub)
 
     def Clear(self):
         """Remove all nodes from the tree."""
         for node in self.tree.get_children():
             self.tree.delete(node)
+        self.tree.column("#0", width=100)
 
     def InsertNode(self, parent='', text='', values=None):
         """Insert a single node into the tree."""
-        return self.tree.insert(parent, 'end', text=text, values=values or [])
+        item = self.tree.insert(parent, 'end', text=text, values=values or [])
+        return item
 
     def DeleteNode(self, node = None):
         """Delete the specified node or currently focused one."""
@@ -100,18 +183,17 @@ class BaseTree(tk.Frame):
 
         self.editBox.bind("<Return>", lambda e, node = node : self.finishEdit(event = e, node = node))
         self.editBox.bind("<Escape>", self.cancelEdit)
-        self.editBox.bind("<FocusOut>", self.finishEdit)
+        self.editBox.bind("<FocusOut>", lambda e, node = node : self.finishEdit(event = e, node = node))
 
     def finishEdit(self, event : tk.Event = None, node = None):
         box = event.widget
         assert type(box) == tk.Entry
         newText = box.get()
-        self.tree.item(self.editItem, text=newText)
-        self.cancelEdit()
+        self.tree.item(node, text=newText)
+        self.cancelEdit(event)
 
-    def cancelEdit(self, event : tk.Event = None):
-        if box is not None:
-            box = event.widget
+    def cancelEdit(self, event):
+        box = event.widget
         assert type(box) == tk.Entry
         box.destroy()
 
@@ -152,7 +234,7 @@ class DirectoryTree(BaseTree):
         super().__init__(parent)
 
     def LoadTree(self, rootPath, node = ''):
-        self.tree.column("#0", width=1800, stretch=False)
+        self.tree.column("#0", stretch=False)
         for item in os.listdir(rootPath):
             newNode = self.tree.insert(node, 'end', text = item, values=[rootPath + "\\" + item])
             if os.path.isdir(rootPath + "\\" + item):
@@ -160,6 +242,8 @@ class DirectoryTree(BaseTree):
 
         if node == '':
             self.leaves = self.GetLeafNodePaths()
+
+        self.autosizeColumn()
 
     def OnSelectNode(self, event = None):
         focus = self.tree.focus()     
@@ -177,10 +261,10 @@ class DirectoryTree(BaseTree):
 
         for i in range(len(currentSiblings)):
             if(self.tree.item(currentSiblings[currentSibling%len(currentSiblings)])["values"][0].split(".")[-1].lower() not in ["jpg", "png", "jpeg"]):
-                self.currentSibling += inc
+                currentSibling += inc
             else:
                 break
-        self.tree.focus(currentSiblings[self.currentSibling%len(currentSiblings)])
+        self.tree.focus(currentSiblings[currentSibling%len(currentSiblings)])
         self.OnSelectNode()
 
     def SelectNextParent(self, inc):
@@ -189,9 +273,9 @@ class DirectoryTree(BaseTree):
         leaves = list(self.GetLeafNodePaths().keys())
         leafIndex = leaves.index(node)
 
-        while self.tree.parent(leaves[node]) == self.tree.parent(leaves[(leafIndex+inc)%len(leaves)]):
+        while self.tree.parent(leaves[leafIndex]) == self.tree.parent(leaves[(leafIndex+inc)%len(leaves)]):
             inc+=inc
         newLeafIndex = (leafIndex+inc)%len(leaves)
-        self.tree.focus(self.leaves[newLeafIndex])     
+        self.tree.focus(leaves[newLeafIndex])
         self.OnSelectNode()
     

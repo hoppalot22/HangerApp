@@ -6,23 +6,29 @@ import ImageProcessTab
 import JobPrepareTab
 import ReportGen
 import Project
+import pickle
 
 class MainWindow():
-    def __init__(self):
+    def __init__(self, project = None):
         root = tk.Tk()
         root.title("Hanger Report Generator")
         root.iconbitmap("Are you working.ico")
         self.root = root
 
-        self.project = Project.Project("New Project")
+        if project is not None:
+            self.project = project
+        else:
+            self.project = Project.Project("New Project")
+
+        #print(self.project)
 
         self.tabControl = ttk.Notebook(root)
-        self.reportGen = ReportGen.ReportGenTab(self.tabControl, project=self.project)
-        self.photoProcessTab = ImageProcessTab.ImageProcessTab(self.tabControl)
-        self.newJobTab = JobPrepareTab.JobPrepareTab(self.tabControl)
+        self.reportGen = ReportGen.ReportGenTab(self.tabControl, self)
+        self.imageTab = ImageProcessTab.ImageProcessTab(self.tabControl, self)
+        self.newJobTab = JobPrepareTab.JobPrepareTab(self.tabControl, self)
 
         self.tabControl.add(self.reportGen, text = "Report Generation")
-        self.tabControl.add(self.photoProcessTab, text = "Image Processing")
+        self.tabControl.add(self.imageTab, text = "Image Processing")
         self.tabControl.add(self.newJobTab, text = "Prepare for Job")        
         
         self.tabControl.pack(expand=1, fill = "both")
@@ -34,7 +40,10 @@ class MainWindow():
 
 
 def Main():
-    myWindow = MainWindow()
+    with open(r"C:\Users\alexm\OneDrive\Documents\Code Projects\PYTHON\apps\Inspection App\New Project.pkl", 'rb') as f:
+        project = pickle.load(f)
+    assert type(project) == Project.Project
+    myWindow = MainWindow(project=project)
 
 if __name__ == '__main__':
     Main()

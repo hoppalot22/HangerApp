@@ -21,3 +21,7 @@ class Project():
     def AddComponent(self):
         self.componentIDs.append(self.nextID)
         self.nextID += 1
+
+    def __repr__(self):
+        attrs = "\n".join(f"{k}={v!r}" for k, v in vars(self).items())
+        return f"{self.__class__.__name__}\n{attrs}"
