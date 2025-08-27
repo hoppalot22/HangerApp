@@ -1,4 +1,5 @@
 import tkinter as tk
+import os
 from tkinter import filedialog, messagebox, ttk
 import EntityColumn
 import Treeviews
@@ -29,6 +30,7 @@ class ReportGenTab(tk.Frame):
 
         self.buttonColumn.AddButton("Open", text ="Open Project...", command = self.Open)
         self.buttonColumn.AddButton("Save", text ="Save Project", command = self.Save)
+        self.buttonColumn.AddButton("Save As", text ="Save Project As", command = lambda : self.Save(saveAs=True))
         self.buttonColumn.AddButton("Edit", text ="Edit Data", command = self.Edit)
         self.buttonColumn.AddButton("Generate", text ="Generate Report", command = self.GenerateReport)
         self.buttonColumn.AddButton("GenProj", text = "Generate From...", command = self.GenerateProj)
@@ -38,11 +40,15 @@ class ReportGenTab(tk.Frame):
 
         self.dataViewer = TreeItemDataViewer.TreeItemDataViewer(self.dataViewerFrame)
         self.dataViewer.tree.bind("<Double-1>", self.OnDoubleClick)
-        self.addRelField = tk.Button(self.dataViewerFrame, text="Add Report Field", command=self.AddRelField)
+
+        self.relFieldButtonsFrame = tk.Frame(self.dataViewerFrame)
+
+        self.addRelField = tk.Button(self.relFieldButtonsFrame, text="Add Report Field", command=self.AddRelField)
         self.addRelField.pack()
-        self.removeRelField = tk.Button(self.dataViewerFrame, text="Remove Report Field", command=self.RemoveRelField)
+        self.removeRelField = tk.Button(self.relFieldButtonsFrame, text="Remove Report Field", command=self.RemoveRelField)
         self.removeRelField.pack()
 
+        self.relFieldButtonsFrame.pack()
         self.dataViewer.pack(fill="both", expand=True)
 
         self.treeView.pack(anchor="ne")
@@ -205,11 +211,11 @@ class ReportGenTab(tk.Frame):
         self.OnTreeSelect(None)
     
     def Save(self, saveAs = False):
-        if self.project.savePath is None:
+        if self.project.savePath is None or (not os.path.isfile(self.project.savePath)):
             saveAs = True
         if saveAs:
-            self.project.savePath = filedialog.askopenfilename()
-        with open(f'{self.project.savePath}.pkl', 'wb') as f:
+            self.project.savePath = filedialog.asksaveasfilename(defaultextension=".pkl", filetypes=[("Pickle files", "*.pkl"), ("All files", "*.*")])
+        with open(self.project.savePath, 'wb') as f:
             pickle.dump(self.project, f)
 
     def Open(self):

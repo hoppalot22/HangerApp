@@ -51,7 +51,7 @@ class ImageProcessTab(tk.Frame):
         processColumn.AddField("Hot Reading", text="Hot Reading")
         processColumn.AddField("Cold Indicator", text="Cold Indicator")
         processColumn.AddField("Hot Indicator",text="Hot Indicator")
-        processColumn.AddCheckBox(self, "Perspective", text = "Perspective Correction", variable=self.gui.perspectiveOverlay, command = self.gui.UpdateScreen)
+        processColumn.AddCheckBox(self, "Perspective", text = "Perspective Correction", variable=self.gui.perspectiveOverlay, command = lambda : self.gui.UpdateScreen(resetZoom = True))
         processColumn.pack()
 
         statusLabel = tk.Label(self, text = self.statusText, wraplength = 100, justify = "center")
@@ -80,7 +80,7 @@ class ImageProcessTab(tk.Frame):
         self.UpdatePicture()
 
     def SelectDirectory(self, askDialog = True):
-        if askDialog or (self.project.photoFolder is None):
+        if askDialog or (self.project.photoFolder is None) or (not os.path.isdir(self.project.photoFolder)):
             self.project.photoFolder = filedialog.askdirectory()
         self.treeView.LoadTree(self.project.photoFolder)
         self.treeView.tree.focus(list(self.treeView.leaves.keys())[0])

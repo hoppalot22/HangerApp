@@ -40,7 +40,8 @@ class MainWindow():
 
 
 def Main():
-    with open(r"C:\Users\alexm\OneDrive\Documents\Code Projects\PYTHON\apps\Inspection App\New Project.pkl", 'rb') as f:
+    wd = os.path.dirname(__file__)
+    with open(f"{wd}\\New Project.pkl", 'rb') as f:
         project = pickle.load(f)
     assert type(project) == Project.Project
     myWindow = MainWindow(project=project)

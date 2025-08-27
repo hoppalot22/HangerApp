@@ -63,7 +63,8 @@ class BaseTree(tk.Frame):
         self.tree.column(col, width=max_width + 10)
     
     def OnSelectNode(self, event=None):
-        self.autosizeColumn
+        #self.autosizeColumn
+        pass
 
     def GetPathToNode(self, node = None, asText = True):
         """Returns list of labels from root to the focused node."""
@@ -233,16 +234,17 @@ class DirectoryTree(BaseTree):
     def __init__(self, parent):
         super().__init__(parent)
 
-    def LoadTree(self, rootPath, node = ''):
+    def LoadTree(self, rootPath):
         self.tree.column("#0", stretch=False)
-        for item in os.listdir(rootPath):
-            newNode = self.tree.insert(node, 'end', text = item, values=[rootPath + "\\" + item])
-            if os.path.isdir(rootPath + "\\" + item):
-                self.LoadTree(rootPath + "\\" + item, node = newNode)
 
-        if node == '':
-            self.leaves = self.GetLeafNodePaths()
-
+        def recurse(rootPath, node = ''):
+            for item in os.listdir(rootPath):
+                newNode = self.tree.insert(node, 'end', text = item, values=[rootPath + "\\" + item])
+                if os.path.isdir(rootPath + "\\" + item):
+                    recurse(rootPath + "\\" + item, node = newNode)
+        
+        recurse(rootPath)
+        self.leaves = self.GetLeafNodePaths()
         self.autosizeColumn()
 
     def OnSelectNode(self, event = None):
@@ -276,6 +278,6 @@ class DirectoryTree(BaseTree):
         while self.tree.parent(leaves[leafIndex]) == self.tree.parent(leaves[(leafIndex+inc)%len(leaves)]):
             inc+=inc
         newLeafIndex = (leafIndex+inc)%len(leaves)
-        self.tree.focus(leaves[newLeafIndex])
+        self.tree.focus(list(self.tree.get_children(self.tree.parent(leaves[newLeafIndex]))))
         self.OnSelectNode()
     
