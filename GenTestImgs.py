@@ -1,27 +1,28 @@
 from PIL import Image, ImageDraw, ImageFont
 import os
+import random
 
 def GenTextImg(savePath, textString):
 
-    w = 255
-    h = 255
+    w = 1600
+    h = 1200
+    n = 40 # how many characters per line
 
-    img1 = Image.new("RGB", [w,h], color = (255,255,255))
-    img2 = Image.new("RGB", [w,h], color = (255,255,255))
-    draw1 = ImageDraw.Draw(img1)
-    draw2 = ImageDraw.Draw(img2)
-    font = ImageFont.load_default()
+    font = ImageFont.load_default(50)
 
     text_x = int(20)
     text_y = int(h/2)
 
-    text_color = (0, 0, 0) 
+    text_color = (0, 0, 0)
 
-    draw1.text((text_x, text_y), textString + " 1", font=font, fill=text_color)
-    draw2.text((text_x, text_y), textString + " 2", font=font, fill=text_color)
+    for i in range(0, random.randint(1,5)):
+        img = Image.new("RGB", [w,h], color = (255,255,255))
+        draw = ImageDraw.Draw(img)
+        draw.text((text_x, text_y), "\n".join([textString[i:i+n] for i in range(0, len(textString), n)]) + f" {i+1}", font=font, fill=text_color)
+        img.save(savePath + "\\" + textString + f"_{i+1}.jpg")
 
-    img1.save(savePath + "\\" + textString + "_1.jpg")
-    img2.save(savePath + "\\" + textString + "_2.jpg")
+    
+
 
 def GenImgs(root : str, structureDict : dict):
 
@@ -41,203 +42,26 @@ def GenImgs(root : str, structureDict : dict):
         
         GenImgs(newPath, v)
 
+def GenStructureDict(xlsPath : str) -> dict:
+    import pandas as pd
+    data = pd.read_excel(xlsPath, sheet_name="Structure")
+    structure = {}
+    for i, row in data.iterrows():
+        levels = [str(row[c]) for c in data.columns if str(row[c]) != "nan"]
+        currentLevel = structure
+        for level in levels:
+            if level not in currentLevel:
+                currentLevel[level] = {}
+            currentLevel = currentLevel[level]
+    return structure
+
+
 def main():
 
     root = "\\".join(os.path.abspath(__file__).split("\\")[0:-1])
-    structure = {
-        "PowerStation" :{
-            "Unit1" : {
-                "MS" : {
-                    "H1" : {},
-                    "H2" : {
-                        "East" : {},
-                        "West" : {},
-                    },
-                    "H3" : {},
-                    "H4" : {},
-                    "H5" : {
-                        "East" : {},
-                        "West" : {},
-                    },
-                    "H6" : {
-                        "North" : {},
-                        "South" : {},
-                    },
-                    "H7" : {
-                        "East" : {},
-                        "West" : {},
-                    },
-                    "H8" : {},
-                    "H9" : {},
-                },
-                "HRH" : {
-                    "H1" : {
-                        "East" : {},
-                        "West" : {},
-                    },
-                    "H2" : {},
-                    "H3" : {},
-                    "H4" : {
-                        "East" : {},
-                        "West" : {},
-                    },
-                    "H5" : {},
-                    "H6" : {},
-                    "H7" : {
-                        "North" : {},
-                        "South" : {},
-                    },
-                    "H8" : {},
-                    "H9" : {},
-                },
-                "CRH" : {
-                    "H1" : {},
-                    "H2" : {
-                        "East" : {},
-                        "West" : {},
-                    },
-                    "H3" : {},
-                    "H4" : {},
-                    "H5" : {},
-                    "H6" : {},
-                    "H7" : {},
-                    "H8" : {
-                        "North" : {},
-                        "South" : {},
-                    },
-                    "H9" : {},
-                },
-                "Feedwater" : {
-                    "H1" : {},
-                    "H2" : {},
-                    "H3" : {
-                        "East" : {},
-                        "West" : {},
-                    },
-                    "H4" : {},
-                    "H5" : {},
-                    "H6" : {},
-                    "H7" : {
-                        "East" : {},
-                        "West" : {},
-                    },
-                    "H8" : {
-                        "North" : {},
-                        "South" : {},
-                    },
-                    "H9" : {},
-                },
-                "Bypass" : {
-                    "H1" : {},
-                    "H2" : {},
-                    "H3" : {},
-                    "H4" : {},
-                    "H5" : {},
-                    "H6" : {},
-                    "H7" : {},
-                    "H8" : {},
-                    "H9" : {},
-                },
-                "Misc" : {}
+    structure = GenStructureDict(root + "\\HRSG data.xlsx")
 
-            },
-            "Unit2" : {
-                "MS" : {
-                    "H1" : {},
-                    "H2" : {
-                        "East" : {},
-                        "West" : {},
-                    },
-                    "H3" : {},
-                    "H4" : {},
-                    "H5" : {
-                        "East" : {},
-                        "West" : {},
-                    },
-                    "H6" : {
-                        "North" : {},
-                        "South" : {},
-                    },
-                    "H7" : {
-                        "East" : {},
-                        "West" : {},
-                    },
-                    "H8" : {},
-                    "H9" : {},
-                },
-                "HRH" : {
-                    "H1" : {
-                        "East" : {},
-                        "West" : {},
-                    },
-                    "H2" : {},
-                    "H3" : {},
-                    "H4" : {
-                        "East" : {},
-                        "West" : {},
-                    },
-                    "H5" : {},
-                    "H6" : {},
-                    "H7" : {
-                        "North" : {},
-                        "South" : {},
-                    },
-                    "H8" : {},
-                    "H9" : {},
-                },
-                "CRH" : {
-                    "H1" : {},
-                    "H2" : {
-                        "East" : {},
-                        "West" : {},
-                    },
-                    "H3" : {},
-                    "H4" : {},
-                    "H5" : {},
-                    "H6" : {},
-                    "H7" : {},
-                    "H8" : {
-                        "North" : {},
-                        "South" : {},
-                    },
-                    "H9" : {},
-                },
-                "Feedwater" : {
-                    "H1" : {},
-                    "H2" : {},
-                    "H3" : {
-                        "East" : {},
-                        "West" : {},
-                    },
-                    "H4" : {},
-                    "H5" : {},
-                    "H6" : {},
-                    "H7" : {
-                        "East" : {},
-                        "West" : {},
-                    },
-                    "H8" : {
-                        "North" : {},
-                        "South" : {},
-                    },
-                    "H9" : {},
-                },
-                "Bypass" : {
-                    "H1" : {},
-                    "H2" : {},
-                    "H3" : {},
-                    "H4" : {},
-                    "H5" : {},
-                    "H6" : {},
-                    "H7" : {},
-                    "H8" : {},
-                    "H9" : {},
-                },
-                "Misc" : {}
-            }}
-        }
-
-    GenImgs(root, structure)
+    GenImgs(root+"\\HRSG Test", structure)
 
 if __name__ == "__main__":
     main()

@@ -168,10 +168,10 @@ class ImageEditor(ttk.Frame):
                 matrix = cv.getPerspectiveTransform(
                     np.float32(rect), 
                     np.float32([
-                        [self.imageWidth, self.imageHeight],
-                        [self.imageWidth, self.imageHeight],
+                        [0, 0],
+                        [self.imageWidth, 0],
                         [self.imageWidth ,self.imageHeight],
-                        [self.imageWidth, self.imageHeight]
+                        [0, self.imageHeight]
                     ])
                 )
                 self.canv2Img = cv.warpPerspective(self.canv1Img, matrix, (self.imageWidth, self.imageHeight))

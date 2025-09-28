@@ -35,7 +35,7 @@ class ReportGenTab(tk.Frame):
         self.buttonColumn.AddButton("Generate", text ="Generate Report", command = self.GenerateReport)
         self.buttonColumn.AddButton("GenProj", text = "Generate From...", command = self.GenerateProj)
 
-        self.treeView = Treeviews.ProjectTree(self.rhsFrame, "MyProject")
+        self.treeView = Treeviews.ProjectTree(self.rhsFrame, headingText = "Project Tree")
         self.treeView.tree.bind("<<TreeviewSelect>>", self.OnTreeSelect)
 
         self.dataViewer = TreeItemDataViewer.TreeItemDataViewer(self.dataViewerFrame)
@@ -133,30 +133,8 @@ class ReportGenTab(tk.Frame):
         self.UpdateTree()
 
     def UpdateTree(self):
-        self.treeView.tree.delete(*self.treeView.tree.get_children())
-
-        hierarchyColumns = self.project.hierarchyColumns
-        if not hierarchyColumns:
-            return
-
-        data = self.project.data.to_dict(orient="records")
-
-        def InsertRecursive(parent, rows, depth):
-            if depth >= len(hierarchyColumns):
-                return
-
-            col = hierarchyColumns[depth]
-            seen = {}
-            for row in rows:
-                key = row[col]
-                seen.setdefault(key, []).append(row)
-
-            for key in sorted(seen.keys(), key=str):
-                children = seen[key]
-                nodeId = self.treeView.tree.insert(parent, "end", text=key)
-                InsertRecursive(nodeId, children, depth + 1)
-
-        InsertRecursive("", data, 0)
+        self.treeView.LoadTreeFromProj(self.project)
+        self.OnTreeSelect(None)
 
     def OnDoubleClick(self, event):
         region = self.dataViewer.tree.identify("region", event.x, event.y)

@@ -13,6 +13,7 @@ class MainWindow():
         root = tk.Tk()
         root.title("Hanger Report Generator")
         root.iconbitmap("Are you working.ico")
+        root.bind("<Button-3>", lambda e : self.PrintProject())
         self.root = root
 
         if project is not None:
@@ -38,10 +39,13 @@ class MainWindow():
 
         root.mainloop()
 
+    def PrintProject(self):
+        print(self.project)
+
 
 def Main():
     wd = os.path.dirname(__file__)
-    with open(f"{wd}\\New Project.pkl", 'rb') as f:
+    with open(f"{wd}\\HRSG Hangers.pkl", 'rb') as f:
         project = pickle.load(f)
     assert type(project) == Project.Project
     myWindow = MainWindow(project=project)

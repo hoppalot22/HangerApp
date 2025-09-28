@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, font as tkFont
 import EntityColumn
 import os
+import Project
 
 class BaseTree(tk.Frame):
     def __init__(self, parent, headingText="Tree", width = 300, height = 400):
@@ -15,7 +16,7 @@ class BaseTree(tk.Frame):
         self.tree.column("dummy", width=0, stretch=False)
         self.tree.heading("dummy", text="")
         self.tree.heading('#0', text=headingText, anchor='w')
-        self.tree.column("#0", stretch=False, minwidth=1000)
+        self.tree.column("#0", stretch=False, minwidth=800)
 
         self.leaves = {}
 
@@ -49,7 +50,7 @@ class BaseTree(tk.Frame):
         def measure_node(node, depth=0):
             nonlocal max_width
             text = self.tree.item(node, "text")
-            width = self._font.measure(text) + depth * 20  # indent adds width
+            width = int(self._font.measure(text)*1.05 + depth * 20)  # indent adds width
             max_width = max(max_width, width)
 
             for child in self.tree.get_children(node):
@@ -63,8 +64,7 @@ class BaseTree(tk.Frame):
         self.tree.column(col, width=max_width + 10)
     
     def OnSelectNode(self, event=None):
-        #self.autosizeColumn
-        pass
+        self.event_generate("<<NodeSelect>>")
 
     def GetPathToNode(self, node = None, asText = True):
         """Returns list of labels from root to the focused node."""
@@ -85,6 +85,18 @@ class BaseTree(tk.Frame):
             parent = self.tree.parent(parent)
         return list(reversed(path))
     
+    def GetAllNodes(self):
+        allNodes = []
+        def recurse(node):
+            allNodes.append(node)
+            for child in self.tree.get_children(node):
+                recurse(child)
+
+        for root in self.tree.get_children():
+            recurse(root)
+        
+        return allNodes
+
     def GetLeafNodePaths(self):
         leafPaths = {}
         def recurse(node, pathSoFar : list):
@@ -198,10 +210,71 @@ class BaseTree(tk.Frame):
         assert type(box) == tk.Entry
         box.destroy()
 
+    def LoadTreeFromDir(self, rootPath):
+        self.Clear()
+        self.tree.column("#0", stretch=False)
+
+        def recurse(rootPath, node = ''):
+            for item in os.listdir(rootPath):
+                newNode = self.tree.insert(node, 'end', text = item, values=[rootPath + "\\" + item])
+                if os.path.isdir(rootPath + "\\" + item):
+                    recurse(rootPath + "\\" + item, node = newNode)
+        
+        recurse(rootPath)
+        self.leaves = self.GetLeafNodePaths()
+        self.autosizeColumn()
+
+    def LoadTreeFromProj(self, project : Project.Project):
+        
+        self.Clear()
+        hierarchyColumns = project.hierarchyColumns
+        if not hierarchyColumns:
+            print("No hierarchy columns defined in project")
+            return
+
+        data = project.data.to_dict(orient="records")
+
+        def InsertRecursive(parent, rows : list[dict], depth):
+            if depth >= len(hierarchyColumns):
+                return
+
+            col = hierarchyColumns[depth]
+            seen = {}
+            for row in rows:
+                key = row[col]
+                assert type(key) == str
+                seen.setdefault(key, []).append(row)
+
+            for key in sorted(seen.keys(), key=str):
+                children = seen[key]
+                nodeId = self.tree.insert(parent, "end", text=key)
+                InsertRecursive(nodeId, children, depth + 1)
+
+        InsertRecursive("", data, 0)
+
+        self.leaves = self.GetLeafNodePaths()
+        self.autosizeColumn()
+
+    def copy(self, master):
+        newTree = BaseTree(master, headingText=self.tree.heading('#0')['text'], width=self.width, height=self.height)
+        
+        def recurse_copy(node, parent=''):
+            text = self.tree.item(node, 'text')
+            values = self.tree.item(node, 'values')
+            new_node = newTree.tree.insert(parent, 'end', text=text, values=values)
+            for child in self.tree.get_children(node):
+                recurse_copy(child, new_node)
+
+        for root in self.tree.get_children(''):
+            recurse_copy(root)
+
+        newTree.leaves = newTree.GetLeafNodePaths()
+        newTree.autosizeColumn()
+        return newTree
+
 class ProjectTree(BaseTree):
-    def __init__(self, parent, projName):
-        super().__init__(parent)
-        self.projName = projName
+    def __init__(self, parent, **kwargs):
+        super().__init__(parent, **kwargs)
 
         self.treeContols = EntityColumn.EntityColumn(self)
         self.treeContols.AddField("Amount", text = "No. nodes to add")
@@ -231,29 +304,12 @@ class ProjectTree(BaseTree):
         pass
 
 class DirectoryTree(BaseTree):
-    def __init__(self, parent):
-        super().__init__(parent)
-
-    def LoadTree(self, rootPath):
-        self.tree.column("#0", stretch=False)
-
-        def recurse(rootPath, node = ''):
-            for item in os.listdir(rootPath):
-                newNode = self.tree.insert(node, 'end', text = item, values=[rootPath + "\\" + item])
-                if os.path.isdir(rootPath + "\\" + item):
-                    recurse(rootPath + "\\" + item, node = newNode)
-        
-        recurse(rootPath)
-        self.leaves = self.GetLeafNodePaths()
-        self.autosizeColumn()
+    def __init__(self, parent, **kwargs):
+        super().__init__(parent, **kwargs)
 
     def OnSelectNode(self, event = None):
-        focus = self.tree.focus()     
-
-        if(focus in self.leaves.keys()):
-            selectionPath = self.tree.item(focus, "values")[0]
-            if(os.path.isfile(selectionPath)):
-                self.event_generate("<<NodeSelect>>")
+        
+        self.event_generate("<<NodeSelect>>")
 
     def SelectNext(self, inc):
         focus = self.tree.focus()  
@@ -273,11 +329,15 @@ class DirectoryTree(BaseTree):
         
         node = self.tree.focus()
         leaves = list(self.GetLeafNodePaths().keys())
-        leafIndex = leaves.index(node)
+        allNodes = self.GetAllNodes()
 
-        while self.tree.parent(leaves[leafIndex]) == self.tree.parent(leaves[(leafIndex+inc)%len(leaves)]):
-            inc+=inc
-        newLeafIndex = (leafIndex+inc)%len(leaves)
-        self.tree.focus(list(self.tree.get_children(self.tree.parent(leaves[newLeafIndex]))))
+        leafIndex = allNodes.index(node)
+
+        while (self.tree.parent(allNodes[leafIndex]) == self.tree.parent(allNodes[(leafIndex+inc)%len(allNodes)]) or (allNodes[(leafIndex+inc)%len(allNodes)] not in leaves)):
+            inc+=int(inc/abs(inc))
+        newParent = self.tree.parent(allNodes[(leafIndex+inc)%len(allNodes)])
+        newLeaf = list(self.tree.get_children(newParent))[0]
+        print(leafIndex + inc, newParent, newLeaf, self.tree.item(newLeaf, "text"))
+        self.tree.focus(newLeaf)
         self.OnSelectNode()
     

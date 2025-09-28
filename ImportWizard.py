@@ -77,7 +77,7 @@ class ExcelImportWizard(tk.Toplevel):
         try:
             data = self.project.data
             assert type(data) == pd.DataFrame
-            self.data = {0 : data}  # or self.project.tables
+            self.data = {0 : data}
             self.sheetNames = list(self.data.keys())
             for col in self.project.hierarchyColumns:
                 self.hierarchyListbox.insert(tk.END, col)
@@ -122,7 +122,12 @@ class ExcelImportWizard(tk.Toplevel):
         result = pd.DataFrame()
         for k,v in self.data.items():
             result = pd.concat([result, v], ignore_index=True)
+
+        if "Photo Folder" not in result.columns:
+            result["Photo Folder"] = None            
+
         self.project.data = result
+        
         self.project.SetHierarchyColumns(list(self.hierarchyListbox.get()))
         if destroy:
             self.destroy()
