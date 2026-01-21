@@ -21,16 +21,15 @@ class MainWindow():
         else:
             self.project = Project.Project("New Project")
 
-        #print(self.project)
+        self.tabControl = ttk.Notebook(root)       
+        self.tabs = {}
+        self.tabs["reportGen"] = ReportGen.ReportGenTab(self.tabControl, self)
+        self.tabs["imageProcess"] = ImageProcessTab.ImageProcessTab(self.tabControl, self)
+        self.tabs["jobPrepare"] = JobPrepareTab.JobPrepareTab(self.tabControl, self)   
 
-        self.tabControl = ttk.Notebook(root)
-        self.reportGen = ReportGen.ReportGenTab(self.tabControl, self)
-        self.imageTab = ImageProcessTab.ImageProcessTab(self.tabControl, self)
-        self.newJobTab = JobPrepareTab.JobPrepareTab(self.tabControl, self)
-
-        self.tabControl.add(self.reportGen, text = "Report Generation")
-        self.tabControl.add(self.imageTab, text = "Image Processing")
-        self.tabControl.add(self.newJobTab, text = "Prepare for Job")        
+        self.tabControl.add(self.tabs["reportGen"], text = "Report Generation")
+        self.tabControl.add(self.tabs["imageProcess"], text = "Image Processing")
+        self.tabControl.add(self.tabs["jobPrepare"], text = "Prepare for Job")        
         
         self.tabControl.pack(expand=1, fill = "both")
 
@@ -38,6 +37,13 @@ class MainWindow():
         self.StatusLabel.pack()
 
         root.mainloop()
+
+    def NewProject(self):
+        project = Project.Project("New Project")
+        self.project = project
+
+        for tab in self.tabs.values():
+            tab.Update()
 
     def PrintProject(self):
         print(self.project)

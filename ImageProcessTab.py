@@ -20,6 +20,7 @@ class ImageProcessTab(tk.Frame):
         assert type(project) == Project.Project
         self.project = project
 
+        self.imgFolder = self.project.photoFolder
         self.imgPaths = None
         self.statusText = "empty"
 
@@ -78,7 +79,7 @@ class ImageProcessTab(tk.Frame):
         self.projTreeLabel = tk.Label(self.projTreeFrame, text = "Project Tree: ")
         self.projTreeLabel.pack(anchor="nw")
 
-        projTree = controller.reportGen.treeView
+        projTree = controller.tabs["reportGen"].treeView
         assert type(projTree) == Treeviews.ProjectTree
         self.projTree = projTree.copy(self.projTreeFrame)
 
@@ -107,8 +108,12 @@ class ImageProcessTab(tk.Frame):
 
         self.SelectDirectory(askDialog=False)
 
-    def getPictures(self):
+    def GetPictures(self):
         img_paths = []
+        self.imgFolder = self.project.photoFolder
+        if self.imgFolder == None:
+            self.imgPaths = []
+            return
         rootWalk = os.walk(self.project.photoFolder)
         rootWalk = [walk for walk in rootWalk]
         numFiles = sum([len(files[2]) for files in rootWalk])
@@ -137,9 +142,20 @@ class ImageProcessTab(tk.Frame):
         self.dirTreeView.LoadTreeFromDir(self.project.photoFolder)
         self.dirTreeView.tree.focus(list(self.dirTreeView.leaves.keys())[0])
         self.dirTreeView.OnSelectNode()
-        myThead = threading.Thread(target=self.getPictures)
+        myThead = threading.Thread(target=self.GetPictures)
         myThead.start()
 
+    def Update(self):
+        self.UpdateProject()
+        self.TreeUpdate()
+
+    def UpdateProject(self):
+        project = self.controller.project
+        assert type(project) == Project.Project
+        self.project = project
+        if self.imgFolder != self.project.photoFolder:
+            self.GetPictures()
+    
     def UpdateLabel(self):
         self.statusLabel.configure(text = self.statusText)        
         self.UpdateDirLabel()
@@ -212,9 +228,12 @@ class ImageProcessTab(tk.Frame):
         if os.path.isfile(filepath) and (filepath.split(".")[-1].lower() in ["jpg", "png", "jpeg"]):
             self.gui.loadImg(filepath)
 
-    def TreeUpdate(self, event):
+    def TreeUpdate(self, event = None):
         self.statusText = f"Image: {' -> '.join(self.dirTreeView.GetPathToNode(self.dirTreeView.tree.focus(), asText=True))}"
         #print(f"Trees differ at {self.dirTreeView.TreeDiff(self.projTree)}")
+        self.projTree.LoadTreeFromProj(self.project)
+        if self.dirTreeView.photoDir != self.project.photoFolder:
+            self.dirTreeView.LoadTreeFromDir(self.project.photoFolder)
         self.PopulateFields()
         self.UpdateLabel()
         self.UpdatePicture(event)
@@ -358,7 +377,7 @@ class ImageProcessTab(tk.Frame):
 
         compCol = self.project.hierarchyColumns[-1] if self.project.hierarchyColumns is not None else None
         currentComp = self.projTree.tree.selection()[0] if len(self.projTree.tree.selection()) > 0 else None
-        componentName = self.projTree.tree.item(currentComp, "text")     
+        componentName = self.projTree.tree.item(currentComp, "text") if currentComp is not None else None
         data = self.project.data
 
         for field, entry in self.fieldWidget.entries.items():

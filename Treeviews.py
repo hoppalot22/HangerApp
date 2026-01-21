@@ -210,20 +210,6 @@ class BaseTree(tk.Frame):
         assert type(box) == tk.Entry
         box.destroy()
 
-    def LoadTreeFromDir(self, rootPath):
-        self.Clear()
-        self.tree.column("#0", stretch=False)
-
-        def recurse(rootPath, node = ''):
-            for item in os.listdir(rootPath):
-                newNode = self.tree.insert(node, 'end', text = item, values=[rootPath + "\\" + item])
-                if os.path.isdir(rootPath + "\\" + item):
-                    recurse(rootPath + "\\" + item, node = newNode)
-        
-        recurse(rootPath)
-        self.leaves = self.GetLeafNodePaths()
-        self.autosizeColumn()
-
     def LoadTreeFromProj(self, project : Project.Project):
         
         self.Clear()
@@ -306,10 +292,28 @@ class ProjectTree(BaseTree):
 class DirectoryTree(BaseTree):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
+        self.photoDir = None
 
     def OnSelectNode(self, event = None):
         
         self.event_generate("<<NodeSelect>>")
+
+    def LoadTreeFromDir(self, rootPath):
+        self.Clear()
+        self.photoDir = rootPath
+        if rootPath is None:
+            return
+        self.tree.column("#0", stretch=False)
+
+        def recurse(rootPath, node = ''):
+            for item in os.listdir(rootPath):
+                newNode = self.tree.insert(node, 'end', text = item, values=[rootPath + "\\" + item])
+                if os.path.isdir(rootPath + "\\" + item):
+                    recurse(rootPath + "\\" + item, node = newNode)
+        
+        recurse(rootPath)
+        self.leaves = self.GetLeafNodePaths()
+        self.autosizeColumn()
 
     def SelectNext(self, inc):
         focus = self.tree.focus()  

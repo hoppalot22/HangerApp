@@ -28,6 +28,7 @@ class ReportGenTab(tk.Frame):
 
         self.buttonColumn = EntityColumn.EntityColumn(self.rhsFrame)
 
+        self.buttonColumn.AddButton("New", text ="New Project", command = self.NewProject)
         self.buttonColumn.AddButton("Open", text ="Open Project...", command = self.Open)
         self.buttonColumn.AddButton("Save", text ="Save Project", command = self.Save)
         self.buttonColumn.AddButton("Save As", text ="Save Project As", command = lambda : self.Save(saveAs=True))
@@ -41,14 +42,19 @@ class ReportGenTab(tk.Frame):
         self.dataViewer = TreeItemDataViewer.TreeItemDataViewer(self.dataViewerFrame)
         self.dataViewer.tree.bind("<Double-1>", self.OnDoubleClick)
 
-        self.relFieldButtonsFrame = tk.Frame(self.dataViewerFrame)
+        self.dataViewerButtonsFrame = tk.Frame(self.dataViewerFrame)
 
-        self.addRelField = tk.Button(self.relFieldButtonsFrame, text="Add Report Field", command=self.AddRelField)
-        self.addRelField.pack()
-        self.removeRelField = tk.Button(self.relFieldButtonsFrame, text="Remove Report Field", command=self.RemoveRelField)
-        self.removeRelField.pack()
+        self.addRelField = tk.Button(self.dataViewerButtonsFrame, text="Add Report Field", command=self.AddRelField)
+        self.addRelField.pack(side = "left")
+        self.removeRelField = tk.Button(self.dataViewerButtonsFrame, text="Remove Report Field", command=self.RemoveRelField)
+        self.removeRelField.pack(side = "left")
 
-        self.relFieldButtonsFrame.pack()
+        self.addField = tk.Button(self.dataViewerButtonsFrame, text="Add Field", command=self.AddField)
+        self.addField.pack(side = "left")
+        self.removeField = tk.Button(self.dataViewerButtonsFrame, text="Remove Field", command=self.RemoveField)
+        self.removeField.pack(side = "left")
+
+        self.dataViewerButtonsFrame.pack()
         self.dataViewer.pack(fill="both", expand=True)
 
         self.treeView.pack(anchor="ne")
@@ -90,8 +96,13 @@ class ReportGenTab(tk.Frame):
     def OnTreeSelect(self, event):
         selectedItem = self.treeView.tree.selection()
         if not selectedItem:
-            self.treeView.tree.selection_set(self.treeView.tree.get_children()[0])
-            selectedItem = self.treeView.tree.selection()
+            topChildren = self.treeView.tree.get_children()
+            if len(topChildren)>0:
+                self.treeView.tree.selection_set(topChildren[0])
+                selectedItem = self.treeView.tree.selection()
+            else:
+                self.dataViewer.DisplayData({"Note": "No data available."})
+                return
 
         itemText = self.treeView.tree.item(selectedItem, "text")
 
@@ -132,6 +143,10 @@ class ReportGenTab(tk.Frame):
         wizard.wait_window()
         self.UpdateTree()
 
+    def Update(self):
+        self.project = self.controller.project
+        self.UpdateTree()
+    
     def UpdateTree(self):
         self.treeView.LoadTreeFromProj(self.project)
         self.OnTreeSelect(None)
@@ -167,7 +182,22 @@ class ReportGenTab(tk.Frame):
 
         entry.bind("<Return>", SaveEdit)
         entry.bind("<FocusOut>", SaveEdit)
-    
+
+
+    def AddField(self):
+        self.project.data["New Field"] = ""
+        self.UpdateTree()
+
+
+    def RemoveField(self):
+        viewerTree = self.dataViewer.tree
+        selectedFields = viewerTree.selection()
+        for item in selectedFields:
+            field = viewerTree.item(item)
+            if field in self.project.data.columns:
+                self.project.data.drop(columns=[field], inplace=True)
+        self.UpdateTree()
+
     def AddRelField(self):
         for item in self.dataViewer.tree.selection():
             field = self.dataViewer.tree.set(item, "Field")
@@ -195,6 +225,10 @@ class ReportGenTab(tk.Frame):
             self.project.savePath = filedialog.asksaveasfilename(defaultextension=".pkl", filetypes=[("Pickle files", "*.pkl"), ("All files", "*.*")])
         with open(self.project.savePath, 'wb') as f:
             pickle.dump(self.project, f)
+
+    def NewProject(self):
+        self.controller.NewProject()
+        self.UpdateTree()
 
     def Open(self):
         self.project.savePath = filedialog.askopenfilename()

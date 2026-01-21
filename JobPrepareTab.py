@@ -22,6 +22,10 @@ class JobPrepareTab(tk.Frame):
 
         processColumn.pack(anchor = "ne")
 
+    def Update(self):
+        self.project = self.controller.project
+        pass
+    
     def GenerateQRs(self):
         pass
 
